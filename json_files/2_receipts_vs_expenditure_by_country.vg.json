@@ -1,0 +1,178 @@
+{
+    "$schema": "https://vega.github.io/schema/vega-lite/v5.json",
+    "width": 800,
+    "height": 400,
+    "padding": 10,
+    "autosize": "pad",
+
+    "params": [
+        {
+            "name": "continent_selection",
+            "value": "Asia",
+            "bind": {
+                "input": "select",
+                "options": [
+                    "Asia",
+                    "Africa",
+                    "Europe",
+                    "North America",
+                    "South America",
+                    "Oceania"
+                ],
+                "labels": [
+                    "Asia",
+                    "Africa",
+                    "Europe",
+                    "North America",
+                    "South America",
+                    "Oceania"
+                ],
+                "name": "Filter to continent: "
+            }
+        }
+    ],
+
+    "data": { 
+        "url": "https://raw.githubusercontent.com/mdav0032/FIT3179_Week10/main/data_files/Data_Extract_From_World_Development_Indicators_Modified_Receipts.csv" 
+    },
+    "transform": [
+        {
+            "lookup": "Country Name",
+            "from": {
+                "data": { 
+                    "url": "https://raw.githubusercontent.com/mdav0032/FIT3179_Week10/main/data_files/Data_Extract_From_World_Development_Indicators_Modified_Expenditure.csv" 
+                },
+                "key": "Country Name",
+                "fields": ["total_expenditure_sum"]
+            }
+        },
+        {
+            "calculate": "0 - datum['total_expenditure_sum']",
+            "as": "total_expenditure_sum_negative"
+        },
+        {
+            "fold": ["total_receipts_sum", "total_expenditure_sum_negative"],
+            "as": ["type_of_money", "value"]
+        },
+        {
+            "calculate": "datum['total_receipts_sum'] - datum['total_expenditure_sum']",
+            "as": "net_profit"
+        },
+        {
+            "lookup": "Country Name",
+            "from": {
+                "data": { 
+                    "url": "https://raw.githubusercontent.com/mdav0032/FIT3179_Week10/main/json_files/ne_110m.topojson",
+                    "format": { 
+                        "type": "topojson", 
+                        "feature": "ne_110m_admin_0_countries"
+                    }
+                },
+                "key": "properties.NAME",
+                "fields": ["properties.CONTINENT"]
+            }
+        },
+        {
+            "filter": "datum['properties.CONTINENT'] == continent_selection"
+        }
+    ],
+
+    "layer": [
+        {
+            "mark": "bar",
+
+            "encoding": {
+                "x": {
+                    "field": "Country Name",
+                    "type": "ordinal",
+                    "title": "Country Name",
+                    "sort": {
+                        "field": "net_profit",
+                        "order": "descending"
+                    }
+                },
+                "y": {
+                    "field": "value",
+                    "type": "quantitative",
+                    "title": "Amount ($)"
+                },
+                "color": {
+                    "field": "type_of_money",
+                    "type": "nominal",
+                    "legend": {
+                        "title": "Financial Type",
+                        "labelExpr": "datum.label == 'total_receipts_sum' ? 'Total Receipts (Inflow)' : 'Total Expenditure (Outflow)'"
+                    }
+                },
+                "tooltip": [
+                    {
+                        "field": "Country Name",
+                        "type": "nominal"
+                    },
+                    {
+                        "field": "total_receipts_sum",
+                        "type": "quantitative",
+                        "title": "Total Receipts (Inflow)",
+                        "format": "$,.9r"
+                    },
+                    {
+                        "field": "total_expenditure_sum",
+                        "type": "quantitative",
+                        "title": "Total Expenditure (Outflow)",
+                        "format": "$,.9r"
+                    },
+                    {
+                        "field": "net_profit",
+                        "type": "quantitative",
+                        "title": "Net Tourism Profit",
+                        "format": "$,.9r"
+                    }
+                ]
+            }
+        },
+
+        {
+            "transform": [
+                {
+                    "window": [
+                        {
+                            "op": "rank", 
+                            "as": "ranking"
+                        }
+                    ],
+                    "sort": [
+                        {
+                            "field": "net_profit",
+                            "order": "descending"
+                        }
+                    ]
+                },
+                {
+                    "filter": "datum.ranking == 1"
+                },
+                {
+                    "calculate": "'The country with the highest net profit for; the selected continent was $' + datum['net_profit'] + '.'",
+                    "as": "text_annotation_raw"
+                },
+                {
+                    "calculate": "split(datum.text_annotation_raw, ';')",
+                    "as": "text_annotation"
+                }
+            ],
+
+            "mark": {
+                "type": "text",
+                "align": "left",
+                "dx": -380,
+                "dy": -180,
+                "baseline": "middle",
+                "fontStyle": "italic"
+            },
+
+            "encoding": {
+                "text": { "field": "text_annotation" }
+            }
+        }
+    ]
+
+}
